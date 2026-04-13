@@ -189,7 +189,33 @@
         }
 
         .band-block.unsupported:hover { background-color: var(--unsupported-hover); }
+		/* Side-by-Side Bands Layout */
+        .bands-layout-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 25px;
+        }
+        
+        .bands-column {
+            display: flex;
+            flex-direction: column;
+        }
 
+        .bands-column .section-title {
+            margin-top: 0; /* Overrides the default spacing for a cleaner top edge */
+        }
+
+        /* Responsive stacking for smaller screens/laptops */
+        @media (max-width: 850px) {
+            .bands-layout-wrapper {
+                grid-template-columns: 1fr; 
+                gap: 20px;
+            }
+            .bands-column .section-title {
+                margin-top: 15px; 
+            }
+        }
         /* Tooltip */
         #tooltip {
             position: absolute;
@@ -393,11 +419,17 @@
 
     </div>
 	
-    <div class="section-title">4G LTE Bands</div>
-    <div class="spectrum-container" id="spectrum-4g"></div>
-
-    <div class="section-title">5G NR Bands</div>
-    <div class="spectrum-container" id="spectrum-5g"></div>
+	<div class="bands-layout-wrapper">
+        <div class="bands-column">
+            <div class="section-title">4G LTE Bands</div>
+            <div class="spectrum-container" id="spectrum-4g"></div>
+        </div>
+        
+        <div class="bands-column">
+            <div class="section-title">5G NR Bands</div>
+            <div class="spectrum-container" id="spectrum-5g"></div>
+        </div>
+    </div>    
 	
 	<div id="pnet-section" class="pnet-wrapper disabled">
         <div id="pnet-toggle" class="pnet-header">
