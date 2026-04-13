@@ -190,6 +190,11 @@
         }
 
         .band-block.unsupported:hover { background-color: var(--unsupported-hover); }
+		/* NEW: Ghost class for layout stability */
+        .band-block.ghost {
+            visibility: hidden;
+            pointer-events: none;
+        }
 		/* Side-by-Side Bands Layout */
         .bands-layout-wrapper {
             display: grid;
@@ -344,6 +349,21 @@
         .pnet-column h5 { margin: 12px 0 6px 0; color: #475569; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
         .pnet-column ul { margin: 0; padding-left: 20px; font-size: 14px; color: #334155; }
         .pnet-column li { margin-bottom: 6px; }
+		/* Starlink / Satellite Badge */
+        .ntn-badge {
+            background-color: #0f172a; /* Deep space blue/black */
+            color: #38bdf8; /* Bright satellite blue */
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            border: 1px solid #1e293b;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -363,6 +383,10 @@
         <div class="legend-item">
             <div class="legend-box"></div>
             Standard Active Band
+        </div>
+		<div class="legend-item" style="color: #0284c7; margin-left: 10px;">
+            <span style="font-size: 20px; font-weight: 900; line-height: 0.5; transform: translateY(4px); display: inline-block;">*</span>
+            Starlink D2C
         </div>
         <div class="legend-item" style="margin-left: auto;">
             <div class="legend-box unsup"></div>
@@ -596,7 +620,7 @@
                 bands: {
                     "B3": "2x20 MHz",
                     "B5": "2x5 MHz",
-                    "B7": "2x20 & 2x20 MHz", // Double-stacked FDD capacity
+                    "B7": "2x20 & 2x20 MHz | Starlink Direct Enabled", // Double-stacked FDD capacity
                     "B26": "2x15 MHz",
                     "B28": "2x20 MHz",       // The pristine APT700 Outback pipe
                     "n3": "2x20 MHz",
@@ -611,7 +635,7 @@
             },
             "Optus": {
                 bands: {
-                    "B1": "2x15 MHz",
+                    "B1": "2x15 MHz | Starlink Direct Enabled",
                     "B3": "2x15 MHz",
                     "B7": "2x20 MHz",
                     "B8": "2x10 MHz",
@@ -696,7 +720,7 @@
         "JP": {
             "NTT DoCoMo": {
                 bands: {
-                    "B1": "2x20 MHz",
+                    "B1": "2x20 MHz | Starlink Direct Enabled",
                     "B3": "2x20 MHz",
                     "B19": "2x15 MHz",   // DoCoMo's exclusive Platinum Band
                     "B21": "2x15 MHz",
@@ -713,7 +737,7 @@
             },
             "au (KDDI)": {
                 bands: {
-                    "B1": "2x20 MHz",
+                    "B1": "2x20 MHz | Starlink Direct Enabled",
                     "B3": "2x20 MHz",
                     "B11": "2x10 MHz",
                     "B18": "2x15 MHz",   // KDDI's exclusive Platinum Band
@@ -887,7 +911,7 @@
             },
             "One NZ": {
                 bands: {
-                    "B1": "2x15 MHz",
+                    "B1": "2x15 MHz | Starlink Direct Enabled",
                     "B3": "2x25 MHz",        // Massive historical 1800MHz holding
                     "B7": "2x15 MHz",        // Current holding (seeking Dense Air buyout)
                     "B8": "2x10 MHz",
@@ -1233,7 +1257,33 @@
         renderBands();
     }
 
-    function renderBands() {
+    /*function renderBands() {
+        view4g.innerHTML = '';
+        view5g.innerHTML = '';
+
+        //const hwBands = hardwareData[currentHardware];
+        //const selectedCountry = countrySelect.value;
+        //const selectedCarrier = carrierSelect.value;
+        
+        //let targetBands = new Set(hwBands);
+        //let requiredCarrierBands = [];
+		const hwBands = hardwareData[currentHardware];
+        const selectedCountry = countrySelect.value;
+        const selectedCarrier = carrierSelect.value;
+        
+        // NEW: Build the base grid using the union of both devices to prevent layout shifting
+        const allHwBands = new Set([
+            ...hardwareData["Smart-Ex 03"], 
+            ...hardwareData["Smart-Ex 203"]
+        ]);
+        
+        let targetBands = new Set(allHwBands);
+
+        let requiredCarrierBands = [];
+
+        // Updated lookup to use the .bands array in the new structure
+        if (selectedCountry && selectedCarrier) {*/
+	function renderBands() {
         view4g.innerHTML = '';
         view5g.innerHTML = '';
 
@@ -1241,7 +1291,25 @@
         const selectedCountry = countrySelect.value;
         const selectedCarrier = carrierSelect.value;
         
-        let targetBands = new Set(hwBands);
+        // 1. Grab all hardware bands
+        const allHwBands = new Set([
+            ...hardwareData["Smart-Ex 03"], 
+            ...hardwareData["Smart-Ex 203"]
+        ]);
+
+        // 2. NEW: Scan the entire carrier database to catch bands the devices DON'T have
+        for (const country in carrierData) {
+            for (const carrier in carrierData[country]) {
+                const bands = carrierData[country][carrier].bands;
+                // Safely extract the bands whether they are stored in the old array format or new object format
+                const bandList = Array.isArray(bands) ? bands : Object.keys(bands);
+                bandList.forEach(b => allHwBands.add(b));
+            }
+        }
+        
+        // 3. Create the master layout grid
+        let targetBands = new Set(allHwBands);
+
         let requiredCarrierBands = [];
 
         // Updated lookup to use the .bands array in the new structure
@@ -1352,23 +1420,33 @@
                 : Object.keys(currentCarrierData.bands);
         }
 
-        document.querySelectorAll('.band-block').forEach(block => {
+		/*document.querySelectorAll('.band-block').forEach(block => {
             const bandName = block.dataset.name;
             const lower = parseFloat(block.dataset.lower);
             const upper = parseFloat(block.dataset.upper);
             const isSupported = block.dataset.supported === "true";
 
             let highlight = true;
+            let isStarlink = false; // NEW: Track Starlink status
 
             if (carrierActive) {
                 if (!carrierReqs.includes(bandName)) highlight = false;
-            } else if (manualSelections.length > 0) {
-                if (!manualSelections.includes(bandName)) highlight = false;
+                
+                // NEW: Detect Starlink capability in the database string
+                if (!Array.isArray(currentCarrierData.bands)) {
+                    const holding = currentCarrierData.bands[bandName];
+                    if (typeof holding === 'string' && holding.includes("Starlink")) {
+                        isStarlink = true;
+                    }
+                }
             }
 
             if (!isNaN(freqVal) && freqVal > 0) {
                 if (freqVal < lower || freqVal > upper) highlight = false;
             }
+
+            // NEW: Dynamically append the asterisk to the button text
+            block.textContent = isStarlink ? `${bandName}*` : bandName;
 
             // Apply specific CSS classes
             block.className = 'band-block'; // reset
@@ -1377,16 +1455,14 @@
                 if (isSupported) {
                     block.classList.add('active');
                     
-                    // --- NEW ROLE ASSIGNMENT LOGIC ---
+                    // --- ROLE ASSIGNMENT LOGIC ---
                     let isCoverage = false;
                     let isCapacity = false;
 
                     if (carrierActive) {
-                        // Use the precise definitions specific to this carrier
                         if (currentCarrierData.coverage.includes(bandName)) isCoverage = true;
                         if (currentCarrierData.capacity.includes(bandName)) isCapacity = true;
                     } else {
-                        // Fallback: If no carrier is selected, rely on standard physics
                         if (lower < 1000) isCoverage = true;
                         else isCapacity = true;
                     }
@@ -1400,8 +1476,74 @@
             } else {
                 block.classList.add('dimmed');
             }
+        });*/
+		document.querySelectorAll('.band-block').forEach(block => {
+            const bandName = block.dataset.name;
+            const lower = parseFloat(block.dataset.lower);
+            const upper = parseFloat(block.dataset.upper);
+            const isSupported = block.dataset.supported === "true";
+
+            let highlight = true;
+            let isCarrierRequired = false; // NEW: Track if the carrier explicitly needs this
+            let isStarlink = false; 
+
+            if (carrierActive) {
+                if (!carrierReqs.includes(bandName)) {
+                    highlight = false;
+                } else {
+                    isCarrierRequired = true;
+                }
+                
+                if (!Array.isArray(currentCarrierData.bands)) {
+                    const holding = currentCarrierData.bands[bandName];
+                    if (typeof holding === 'string' && holding.includes("Starlink")) {
+                        isStarlink = true;
+                    }
+                }
+            }
+
+            if (!isNaN(freqVal) && freqVal > 0) {
+                if (freqVal < lower || freqVal > upper) highlight = false;
+            }
+
+            block.textContent = isStarlink ? `${bandName}*` : bandName;
+            block.className = 'band-block'; // reset
+            
+            if (highlight) {
+                if (isSupported) {
+                    block.classList.add('active');
+                    
+                    let isCoverage = false;
+                    let isCapacity = false;
+
+                    if (carrierActive) {
+                        if (currentCarrierData.coverage.includes(bandName)) isCoverage = true;
+                        if (currentCarrierData.capacity.includes(bandName)) isCapacity = true;
+                    } else {
+                        if (lower < 1000) isCoverage = true;
+                        else isCapacity = true;
+                    }
+
+                    if (isCoverage) block.classList.add('role-coverage');
+                    else if (isCapacity) block.classList.add('role-capacity');
+                    
+                } else {
+                    // NEW: Only show the red dashed box if actively required by a carrier or frequency search
+                    if (isCarrierRequired || (!isNaN(freqVal) && freqVal > 0)) {
+                        block.classList.add('unsupported');
+                    } else {
+                        block.classList.add('ghost'); // Disappears but preserves grid layout!
+                    }
+                }
+            } else {
+                if (!isSupported) {
+                    block.classList.add('ghost'); // Disappears but preserves grid layout!
+                } else {
+                    block.classList.add('dimmed');
+                }
+            }
         });
-    }
+	}
 
     // --- Tooltip Logic ---
     /*function showTooltip(e) {
@@ -1449,66 +1591,71 @@
         if (block.classList.contains('role-coverage')) roleText = "Primary Coverage Band";
         if (block.classList.contains('role-capacity')) roleText = "Primary Capacity Band";
 
-        // CALL OUR HELPER FUNCTION HERE
-        //const bandwidthInfo = getTooltipText(name, selectedCarrier, selectedCountry);
-		const isReverseSearch = document.getElementById('reverse-search-toggle').checked;
-		let bandwidthInfo = "";
-		// --- NEW: Generate visual blocks if a carrier is selected ---
-        let visualHtml = '';
-        /*if (selectedCarrier) {
-            const lines = bandwidthInfo.split('\n');
-            if (lines.length > 1) {
-                visualHtml = generateSpectrumVisuals(lines[1]); 
-            }
-        }*/
-		if (isReverseSearch) {
-            // Bypass standard logic and scan for telcos
-            bandwidthInfo = getReverseSearchText(name);
-        } else {
-            // Standard behavior
-            bandwidthInfo = getTooltipText(name, selectedCarrier, selectedCountry);
-            
-            // Generate visual blocks if a carrier is selected
-            if (selectedCarrier) {
-                const lines = bandwidthInfo.split('\n');
-                if (lines.length > 1) {
-                    visualHtml = generateSpectrumVisuals(lines[1]); 
-                }
-            }
-        }
+        const isReverseSearch = document.getElementById('reverse-search-toggle').checked;
+        let bandwidthInfo = "";
+        let visualHtml = "";
 
+        // 1. INITIALIZE THE BASE HTML FIRST (Fixes the crash!)
         let html = `
             <div class="tooltip-row">Band: <span class="tooltip-bold">${name}</span> (${type})</div>
             <div class="tooltip-role">${roleText}</div>
             <div class="tooltip-row" style="margin-top: 8px;">Lower: <span class="tooltip-bold">${lower} MHz</span></div>
             <div class="tooltip-row">Upper: <span class="tooltip-bold">${upper} MHz</span></div>
+        `;
+
+        // 2. BUILD THE DYNAMIC CONTENT (Starlink, Visuals, Reverse Search)
+        let dynamicContent = "";
+
+        if (isReverseSearch) {
+            bandwidthInfo = getReverseSearchText(name);
+            dynamicContent += `<div style="color: #bae6fd; font-size: 14px; margin-top: 8px; white-space: pre-line;">${bandwidthInfo}</div>`;
+        } else {
+            bandwidthInfo = getTooltipText(name, selectedCarrier, selectedCountry);
             
-            <div class="tooltip-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #475569; color: #bae6fd; white-space: pre-line;">
-                ${bandwidthInfo}
-                ${visualHtml} 
+            // Check for Satellite Capability
+            const isStarlink = bandwidthInfo.includes("Starlink");
+            const cleanInfo = isStarlink ? bandwidthInfo.split('|')[0].trim() : bandwidthInfo;
+
+            dynamicContent += `<div style="color: #bae6fd; font-size: 14px; margin-top: 8px; white-space: pre-line;">${cleanInfo}</div>`;
+            
+            if (selectedCarrier) {
+                const lines = bandwidthInfo.split('\n');
+                if (lines.length > 1) {
+                    visualHtml = generateSpectrumVisuals(lines[1]); 
+                    dynamicContent += visualHtml;
+                }
+                
+                // Inject the badge if the trigger was found
+                if (isStarlink) {
+                    dynamicContent += `
+                        <div class="ntn-badge">
+                            🛰️ Starlink D2C (15MHz Terrestrial / 5MHz Space Lane)
+                        </div>
+                    `;
+                }
+            } else {
+                // If no carrier selected, generate generic visuals
+                visualHtml = generateSpectrumVisuals(bandwidthInfo); 
+                dynamicContent += visualHtml;
+            }
+        }
+
+        // 3. APPEND THE DYNAMIC SECTION TO THE BASE HTML
+        html += `
+            <div class="tooltip-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #475569;">
+                ${dynamicContent}
             </div>
         `;
-        /*let html = `
-            <div class="tooltip-row">Band: <span class="tooltip-bold">${name}</span> (${type})</div>
-            <div class="tooltip-role">${roleText}</div>
-            <div class="tooltip-row" style="margin-top: 8px;">Lower: <span class="tooltip-bold">${lower} MHz</span></div>
-            <div class="tooltip-row">Upper: <span class="tooltip-bold">${upper} MHz</span></div>
-            
-            <div class="tooltip-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #475569; color: #bae6fd; white-space: pre-line;">
-                ${bandwidthInfo}
-            </div>
-        `;*/
 
+        // 4. ADD HARDWARE WARNINGS IF UNSUPPORTED
         if (!isSupported) {
             const shortName = currentHardware.replace('Smart-Ex ', 'S');
-            //html += `<span class="tooltip-warn">⚠️ Band not supported by ${shortName}</span>`;
-			// Check if it's a critical missing band
+            
             if (block.classList.contains('role-coverage')) {
                 html += `<span class="tooltip-warn" style="color: #ef4444;">🚨 CRITICAL: ${shortName} lacks primary indoor coverage here!</span>`;
             } else if (block.classList.contains('role-capacity')) {
                 html += `<span class="tooltip-warn" style="color: #f97316;">⚠️ WARNING: ${shortName} misses out on primary 5G speeds here.</span>`;
             } else {
-                // Standard warning for minor bands
                 html += `<span class="tooltip-warn">ℹ️ Band not supported by ${shortName}</span>`;
             }
         }
@@ -1516,7 +1663,7 @@
         tooltip.innerHTML = html;
         tooltip.classList.add('visible');
     }
-
+	
     function moveTooltip(e) {
         // Grab the physical dimensions of the tooltip box
         const tooltipWidth = tooltip.offsetWidth;
@@ -1574,7 +1721,10 @@
     }    
 	function generateSpectrumVisuals(bandwidthString) {
         // Do not draw graphics for the "3GPP Standards" view or missing data
-        if (!bandwidthString || bandwidthString.includes("FDD |") || bandwidthString.includes("TDD |") || bandwidthString.includes("pending")) {
+        /*if (!bandwidthString || bandwidthString.includes("FDD |") || bandwidthString.includes("TDD |") || bandwidthString.includes("pending")) {
+            return '';
+        }*/
+		if (!bandwidthString || bandwidthString.includes("3GPP") || bandwidthString.includes("pending")) {
             return '';
         }
 
